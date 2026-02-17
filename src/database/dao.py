@@ -3,6 +3,7 @@ from create_bot import logger
 
 from sqlalchemy import  select
 from typing import List, Dict, Any, Optional
+from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import uuid4, UUID as PythonUUID
 
@@ -95,9 +96,13 @@ async def get_games(session) -> List[Dict[str, Any]]:
         return []
     
 @connection
-async def get_my_requests(session) -> List[Dict[str, Any]]:
+async def get_my_requests(session, tg_id: int) -> List[Dict[str, Any]]:
     try:
-        result = await session.execute(select(Request))
+        result = await session.execute(select(Request)
+                                        .options(joinedload(Request.game), joinedload(Request.region), joinedload(Request.user))
+                                         .where(Request.user_id == tg_id)
+                                       )
+                                       
         requests = result.scalars().all()
 
         if not requests:
@@ -107,6 +112,12 @@ async def get_my_requests(session) -> List[Dict[str, Any]]:
         requests_list = [
             {
                 'id': request.id,
+                "gameid": request.gameid,
+                "position": request.position,
+                "top": request.top,
+                "region_name": request.region.name,
+                "game_name": request.game.name,
+                "user_id" : request.user_id
             } for request in requests
         ]
 
@@ -116,20 +127,27 @@ async def get_my_requests(session) -> List[Dict[str, Any]]:
         return []
     
 @connection
-async def get_all_requests(session) -> List[Dict[str, Any]]:
+async def get_all_requests(session, user_id: int) -> List[Dict[str, Any]]:
     try:
-        result = await session.execute(select(Game))
-        games = result.scalars().all()
+        result = await session.execute(select(Request)
+                                        .options(joinedload(Request.game), joinedload(Request.region), joinedload(Request.user))
+                                        .where(Request.user_id != user_id))
+        requests = result.scalars().all()
 
-        if not games:
-            logger.info(f"Игры не найдены")
+        if not requests:
+            logger.info(f"Заявки не найдены")
             return []
 
         region_list = [
             {
-                'id': game.id,
-                'name': game.name,
-            } for game in games
+                'id': request.id,
+                "gameid": request.gameid,
+                "position": request.position,
+                "top": request.top,
+                "region_name": request.region.name,
+                "game_name": request.game.name,
+                "user_id" : request.user_id
+            } for request in requests
         ]
 
 
@@ -140,19 +158,22 @@ async def get_all_requests(session) -> List[Dict[str, Any]]:
     
 
 @connection
-async def add_request(session, user_id: str, region: PythonUUID, game: PythonUUID) -> Optional[User]:
+async def add_request(session, user_id: int, region: PythonUUID, game: PythonUUID, gameid: str, top: str, position: str) -> Optional[User]:
     try:
-        request = await session.scalar(select(Request).filter_by(region_id=region, game_id=game))
+        request = await session.scalar(select(Request)
+                                       .filter_by(region_id=region, game_id=game)
+                                       )
 
         if not request:
-            new_request = Request(user_id=user_id, region_id=region, game_id=game)
+            new_request = Request(user_id=user_id, region_id=region, game_id=game, gameid = gameid, top=top, position=position)
+            print(new_request)
             session.add(new_request)
             await session.commit()
             logger.info(f"Создана новая заявки")
             return None
         else:
             logger.info(f"Заявка в регионе {region} по игре {game} уже существует!")
-            return new_request
+            return request
     except SQLAlchemyError as e:
         logger.error(f"Ошибка при добавлении запрос: {e}")
         await session.rollback()

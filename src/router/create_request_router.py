@@ -7,7 +7,6 @@ from database.dao import add_request, get_games, get_regions
 from uuid import UUID as PythonUUID
 from create_bot import bot
 
-
 create_request_router = Router()
 
 
@@ -21,7 +20,6 @@ class AddRequestStates(StatesGroup):
     game_id = State()
     top = State()
     position = State()
-
 
 @create_request_router.callback_query(F.data.startswith('create_request'))
 async def start_note(callback_query: CallbackQuery, state: FSMContext):
@@ -54,7 +52,7 @@ async def region_callback(callback_query: CallbackQuery, callback_data: RequestC
 
     region_id = callback_data.id
     await state.update_data({
-        "region_id": region_id,
+        "region": region_id,
     })
 
     user_id = callback_query.from_user.id
@@ -88,7 +86,7 @@ async def game_callback(callback_query: CallbackQuery, callback_data: RequestCal
 async def cancel_add_note(message: Message, state: FSMContext):
     game_id = message.text
     await state.update_data({
-        "game_id": game_id,
+        "gameid": game_id,
     })
     await message.answer('Введите топ в игре!')
     await state.set_state(AddRequestStates.top)
@@ -112,14 +110,13 @@ async def cancel_add_note(message: Message, state: FSMContext):
     })
 
     data = await state.get_data()
-    print(data)
-
+  
     await add_request(user_id=message.from_user.id, region=data.get('region'),
-                   game=data.get('game'))
+                   game=data.get('game'),  gameid=data.get('gameid'),  top=data.get('top'),  position=data.get('position'))
     start_kb = [
         [KeyboardButton(text="Моя анкета")],
         [KeyboardButton(text="Поиск команды")]
     ]
     keyboard = ReplyKeyboardMarkup(keyboard=start_kb, resize_keyboard=True, one_time_keyboard=False)
-    await message.answer('Заявки успешно добавлена!', reply_markup=keyboard)
+    await message.answer('Заявка успешно добавлена!', reply_markup=keyboard)
     await state.clear()

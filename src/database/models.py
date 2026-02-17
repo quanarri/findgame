@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid
 from uuid import uuid4, UUID as PythonUUID
@@ -11,11 +11,7 @@ from database.database import Base
 class User(Base):
     __tablename__ = 'user'
 
-    id: Mapped[PythonUUID] = mapped_column(
-        Uuid,
-        primary_key=True,
-        default=uuid4 
-    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     
     username: Mapped[str] = mapped_column(String, nullable=True)
     full_name: Mapped[str] = mapped_column(String, nullable=True)
@@ -38,10 +34,14 @@ class Request(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
 
     region: Mapped["Region"] = relationship("Region", back_populates="requests")
-    region_id: Mapped[int] = mapped_column(ForeignKey("region.id"))
+    region_id: Mapped[Uuid] = mapped_column(ForeignKey("region.id"))
 
     game: Mapped["Game"] = relationship("Game", back_populates="requests")
-    game_id: Mapped[int] = mapped_column(ForeignKey("game.id"))
+    game_id: Mapped[Uuid] = mapped_column(ForeignKey("game.id"))
+
+    gameid: Mapped[str] = mapped_column(String, nullable=True)
+    top: Mapped[str] = mapped_column(String, nullable=True)
+    position: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class Region(Base):
